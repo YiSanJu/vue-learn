@@ -1080,3 +1080,726 @@ $parent  //访问父组件实例
 后代组件不需要知道被注入的 property 来自哪里
 ```
 
+## 常见问题
+
+#### 	一、谈一谈对 *MVVM* 的理解？
+
+​	**前身MVC**
+
+​		Model ：管理数据
+
+​		View ：UI布局，展示数据
+
+　　	Controller ：响应用户操作，并将 Model 更新到 View 上
+
+​	**痛点**
+
+​		Controller层频繁的操作DOM，处理繁琐；大量的DOM 操作使页面渲染性能降低（例如jq）
+
+​	**MVVM**
+
+​		Model：数据模型，定义数据修改和操作的业务逻辑
+
+​		View ：代表UI 组件
+
+​		ViewModel ：通过双向数据绑定把 View 层和 Model 层连接了起来（自动化）
+
+#### 	二、VUE原理：响应式和数据绑定？
+
+​		**响应式编程**
+
+​			是指 Vue 会自动对页面中某些数据的变化做出响应
+
+```
+响应式基于双向数据绑定  M<=====>V
+	实现  M=====>V 是通过监听Object.defineProperty的setter和getter实现的
+	实现  V=====>M是通过vue的事件绑定，触发相应函数，然后同步数据
+	
+	Vue3.x 放弃了 Object.defineProperty ，使用 ES6 原生的 Proxy，来解决以前使用 Object.defineProperty 所存在的一些问题。
+	
+
+虽然 Object.defineProperty 在之前的 Vue 版本中被用于实现响应式系统，但它也存在一些问题，这些问题在 Vue 3 中通过使用 Proxy 得到了解决。
+
+新增属性的监听问题：Object.defineProperty 只能监听已经存在的属性，无法监听动态新增的属性。而 Proxy 可以拦截整个对象，包括属性的动态新增和删除。
+
+数组变化的监听问题：Object.defineProperty 无法直接监听数组的变化操作，比如 push、pop、splice 等。数组的变化需要通过特殊的方法来进行处理。而 Proxy 可以直接拦截数组的变化操作，提供了更直观和便捷的数组操作监听。
+
+性能问题：由于 Object.defineProperty 需要遍历对象的属性，并通过 defineProperty 方法进行劫持，因此当对象属性较多时，劫持的性能会受到影响。而 Proxy 的性能更好，因为 Proxy 是在整个对象上进行劫持。
+
+深度嵌套对象问题：Object.defineProperty 只能对对象的一级属性进行劫持，无法对深度嵌套的对象进行劫持。而 Proxy 可以递归地劫持整个对象及其嵌套属性。
+
+总之，虽然 Object.defineProperty 在之前的 Vue 版本实现了响应式系统，但 Proxy 在一些方面具有更好的优势，更适合用于实现 Vue 3 的响应式机制，解决了 Object.defineProperty 存在的一些问题。这些问题包括对新增属性的监听、数组变化的监听、性能问题和深度嵌套对象的问题。
+	
+```
+
+​		**数据绑定**
+
+​			Vue 通过组件，把一个单页应用中的各种模块拆分到一个一个单独的组件（component）中，通过引入这些组件拼接成一个完整的页面，便于协同开发
+
+​		**虚拟DOM**
+
+​			DOM预处理，通过比较虚拟dom和实际dom来更新dom
+
+#### 三、通信方式
+
+​	父传子：props
+
+```javascript
+//父组件
+<el-button type="warning">按钮</el-button>
+//子组件
+props: {
+  type: {
+    type: String,
+    default: 'default'
+  },
+  size: String,
+  icon: {
+    type: String,
+    default: ''
+  },
+  nativeType: {
+    type: String,
+    default: 'button'
+  },
+  loading: Boolean,
+  disabled: Boolean,
+  plain: Boolean,
+  autofocus: Boolean,
+  round: Boolean,
+  circle: Boolean
+},
+```
+
+​	子传父：$emit自定义事件
+
+```javascript
+//父组件
+<template>
+  <div class="section">
+    <com-article :articles="articleList" @onEmitIndex="onEmitIndex"></com-article>
+    <p>{{currentIndex}}</p>
+  </div>
+</template>
+
+<script>
+import comArticle from './test/article.vue'
+export default {
+  name: 'HelloWorld',
+  components: { comArticle },
+  data() {
+    return {
+      currentIndex: -1,
+      articleList: ['红楼梦', '西游记', '三国演义']
+    }
+  },
+  methods: {
+    onEmitIndex(idx) {
+      this.currentIndex = idx
+    }
+  }
+}
+</script>
+
+	
+//子组件
+methods: {
+	emitIndex(index) {
+		this.$emit('onEmitIndex',index)
+	}
+}
+
+
+//子组件触发emitIndex后，将index值传递给父组件，触发父组件的相应绑定方法
+```
+
+$children / $parent/ref：通过$children/this.$parent来访问子组件/父组件实例对象，通过实例对象来访问对应的值; 通过给组件添加ref标记后，使用this.$ref来后去该组件实例
+
+$attrs和$listeners；用于在父组件向子组件传递非props属性和监听器。
+
+```javascript
+//父组件
+
+//$attrs: 它是一个对象，包含了父组件中传递给子组件的所有非props属性。父组件中的数据绑定，除了props之外的所有属性（包括class和style等），都会被自动添加到子组件的$attrs中。子组件可以通过$attrs访问这些属性。
+<template>
+  <div>
+    <child-component v-bind="$attrs"></child-component>
+  </div>
+</template>
+
+//子组件
+
+//$listeners: 它也是一个对象，包含了父组件中传递给子组件的所有事件监听器。父组件中通过v-on绑定的事件监听器会自动添加到子组件的$listeners中。子组件可以通过$listeners获取这些监听器。
+<template>
+  <div>
+    <child-component v-on="$listeners"></child-component>
+  </div>
+</template>
+```
+
+跨组件：状态管理，所有组件都可以访问和修改其中的数据，例如Vuex
+
+祖先后代传值：**Provide / Inject (依赖注入)**父组件可以使用 `provide` 选项提供数据，并在其包裹的子组件中使用 `inject` 选项注入数据。
+
+```javascript
+//A中provide一个数据后，A的后续所有子组件都能通过inject获得数据
+
+// A.vue
+
+<template>
+  <div>
+	<comB></comB>
+  </div>
+</template>
+
+<script>
+  import comB from '../components/test/comB.vue'
+  export default {
+    name: "A",
+    provide: {
+      for: "demo"
+    },
+    components:{
+      comB
+    }
+  }
+</script>
+
+// B.vue
+
+<template>
+  <div>
+    {{demo}}
+    <comC></comC>
+  </div>
+</template>
+
+<script>
+  import comC from '../components/test/comC.vue'
+  export default {
+    name: "B",
+    inject: ['for'],
+    data() {
+      return {
+        demo: this.for
+      }
+    },
+    components: {
+      comC
+    }
+  }
+</script>
+
+// C.vue
+<template>
+  <div>
+    {{demo}}
+  </div>
+</template>
+
+<script>
+  export default {
+    name: "C",
+    inject: ['for'],
+    data() {
+      return {
+        demo: this.for
+      }
+    }
+  }
+</script>
+
+```
+
+​	任何组件间的传值：eventBus（事件总线）
+
+> vue中可以使用它来作为沟通桥梁的概念, 就像是所有组件共用相同的事件中心，可以向该中心注册发送事件或接收事件， 所以组件都可以通知其他组件。
+
+```javascript
+// ComponentA.vue
+
+import eventBus from './EventBus';
+
+// 发送事件
+eventBus.$emit('custom-event', data);
+
+
+// ComponentB.vue
+
+import eventBus from './EventBus';
+
+// 接收事件
+
+eventBus.$on('custom-event', (data) => {
+  // 处理接收到的数据
+});
+
+//移除事件
+import { eventBus } from 'event-bus.js'
+EventBus.$off('addition', {})
+
+//一般可以将其注册到vue实例的原型对象上，避免总是使用import引入
+```
+
+
+
+#### 四、路由实现方式 vue router
+
+##### 	基础
+
+```javascript
+import Router from 'vue-router'
+//Router实际上是一个类，有配置参数routes、mode等
+
+//注册Router
+//一旦注册了路由插件Router，会给Vue提供两个全局组件和两个全局对象
+//全局组件：RouterLink（跳转路由） 和 RouterView（匹配规则后显示组件）；
+//全局对象：$router 和 $route；
+Vue.use(Router)
+
+router = new Router({
+  // 定义模式
+  mode: 'history',
+
+  // 用于定义路由表匹配规则
+  routes: [
+    {
+      path: '/',
+      name: 'mainPage',
+      component: mainPage,
+      children: [
+        {
+          path: 'routerPage',
+          component: routerPage
+        },
+        {
+          path: 'vuexPage',
+          component: vuexPage
+        }
+      ]
+    }
+  ]
+})
+
+
+// 将路由实例挂载在vue实例上使用
+new Vue({
+  el: '#app',
+  router,
+  components: { App },
+  template: '<App/>'
+})
+```
+
+##### 	传值方式
+
+```javascript
+//二种传值方式
+//字符串拼接-----直接拼接  
+//对象定义---使用query属性
+<template>
+  <div class="hello">
+    <h1>{{ msg }}</h1>
+    <ul>
+      <li><router-link to="/routerPage?id=0&name='老王'">路由</router-link></li>
+      <li><router-link :to="{
+        path:'/vuexPage',
+        query:{
+          id:1,
+          name:'老张'
+        }
+      }">状态管理</router-link></li>
+      <li><router-link to="/">主页</router-link></li>
+    </ul>
+    <!-- 路由匹配到的组件将渲染在这里 -->
+  <router-view></router-view>
+  </div>
+</template>
+
+<script>
+export default {
+  name: 'mainPage',
+  data () {
+    return {
+      msg: 'Welcome to Your Vue.js 2.0'
+    }
+  },
+  methods: {
+  }
+}
+</script>
+
+<!-- Add "scoped" attribute to limit CSS to this component only -->
+<style scoped>
+
+</style>
+
+// 使用this.$route.query得到路由信息
+
+
+```
+
+##### 	高阶
+
+###### 		静态/动态路由
+
+​		静态路由的路径是固定的，而动态路由的路径中可以包含占位符，允许匹配动态生成的部分
+
+- 静态路由的路径是固定的，而动态路由的路径中可以包含占位符，允许匹配动态生成的部分。
+
+- 静态路由的路径配置需要明确指定，而动态路由可以根据参数或动态变量来匹配路由。
+
+- 静态路由适用于一组已知的固定页面，而动态路由适用于需要根据不同参数或条件动态加载组件的场景。
+
+  **注意**：
+
+  - 动态路由 不能通过 path + params 配合，因为path会忽略params ；这里的path指的是，RouterLink的to属性的属性值中不能出现path；
+  - 正确方式：**`name(需要给对应的路由取名，也叫命名路由) + params`**；
+  - 虽然写的是对象，但是最终会转为字符串；
+
+  ```javascript
+  //路由配置
+   path: 'Dynamicrouting/:id/:name/:age',
+   component: Dynamicrouting
+  //传值
+  <template>
+      <div class="hello">
+        <h1>{{ msg }}</h1>
+        <ul>
+          <li><router-link to="/routerPage/Dynamicrouting/01/jack/12">动态路由0</router-link></li>
+          <li><router-link to="/routerPage/Dynamicrouting/02/mark/44">动态路由1</router-link></li>
+          <li><router-link to="/routerPage/Dynamicrouting/03/marin/48">动态路由2</router-link></li>
+          <!-- 路由匹配到的组件将渲染在这里 -->
+          <router-view></router-view>
+        </ul>
+      </div>
+    </template>
+  
+  //接值
+  
+  <template>
+      <div class="hello">
+        <h1>{{ msg }}</h1>
+        <h2>{{$route.params.id}}</h2>
+        <h2>{{$route.params.name}}</h2>
+        <h2>{{$route.params.age}}</h2>
+      </div>
+    </template>
+  ```
+
+###### 		编程式导航
+
+​			不使用router-link标签跳转，直接使用this.$router提供的API实现；例如 this.$router.**push**('/path')
+
+- `$route`和`$router`区别：
+  - `$route`：获取路由参数**，表示 **当前 激活的 路由对象，获取当前路由信息，例如this.$route.meta；
+  - `$router`：实现路由跳转**，**`$router.push()`实现跳转；
+
+###### 		路由嵌套
+
+​		二级路由如何配置：
+
+- 创建需要的二级路由组件；
+
+- 在路由规则数组里面对应的对象里面新增 `children` 属性（**属性值 = 数组对象**），在里面配置二级路由规则对象（`path + component`）；
+
+- 对应第一季页面设置给出口，显示二级路由页面；
+
+  ```javascript
+  export default new Router({
+    // 定义模式
+    mode: 'history',
+  
+    // 用于定义路由表匹配规则
+    routes: [
+      {
+        path: '/',
+        component: mainPage,
+        children: [
+          {
+            path: 'routerPage',
+            component: routerPage,
+            children: [
+              {
+                path: 'Dynamicrouting/:id/:name/:age',
+                component: Dynamicrouting
+              }
+            ]
+          },
+          {
+            path: 'vuexPage',
+            component: vuexPage
+          }
+        ]
+      },
+      // 匹配失败后的404，放在 路由规则数组 最后面，path 从上往下 匹配，如果前面没有匹配上的 path 就命中最后这个 *
+      {
+        path: '*',
+        component: notFind
+      }
+    ]
+  })
+  ```
+
+  
+
+###### 	路由导航守卫
+
+- 全局前置守卫(router.beforeEach)：
+
+  ```javascript
+  //router.beforeEach 注册全局前置守卫函数，该函数会在路由导航触发之前被调用。可以通过该守卫进行用户身份验证、路由权限验证等操作。
+  
+  router.beforeEach((to, from, next) => {
+    // 用户身份验证逻辑
+    if (to.meta.requiresAuth && !isLoggedIn) {
+      next('/login');
+    } else {
+      next();
+    }
+  });
+  
+  ```
+
+  
+
+- 全局后置守卫
+
+```javascript
+//用于在导航被确认之后执行一些逻辑操作。它会在每次路由导航完成后被触发
+
+router.afterEach((to, from) => {
+  // 导航完成后的逻辑操作
+  console.log(`Navigated from ${from.path} to ${to.path}`);
+});
+```
+
+
+
+- 全局解析守卫		
+
+```javascript
+//使用 router.beforeResolve 注册全局解析守卫函数，该函数会在导航被确认之前被调用，同时在所有组件内守卫和异步路由组件被解析之后执行。
+
+router.beforeResolve((to, from, next) => {
+  // 在导航被确认之前执行的逻辑
+  next();
+});
+```
+
+
+
+- 路由独享守卫；
+- 组件内的守卫：
+
+###### 	路由元信息
+
+​		获取路由参数**，表示 **当前 激活的 路由对象，描述当前路由信息，this.$route.meta
+
+#### 五、状态管理vuex
+
+​	所有组件实例的全局变量存储库，有以下二个特点
+
+1. Vuex 的状态存储是响应式的。当 Vue 组件从 store 中读取状态的时候，若 store 中的状态发生变化，那么相应的组件也会相应地得到高效更新。
+2. 你不能直接改变 store 中的状态。改变 store 中的状态的唯一途径就是显式地**提交 (commit) mutation**。这样使得我们可以方便地跟踪每一个状态的变化，从而让我们能够实现一些工具帮助我们更好地了解我们的应用。
+
+​	
+
+```javascript
+import Vue from 'vue'
+import Vuex from 'vuex'
+
+Vue.use(Vuex)
+
+const store = new Vuex.Store({
+  // 数据存储
+  state: {
+    count: 0,
+    num: 15,
+    apple: 5,
+    banana: 58
+  },
+  // 修改数据的同步方法
+  mutations: {
+    increment (state) {
+      state.count++
+    }
+  },
+  // 修改数据的异步方法
+  actions: {
+    /**
+     *
+     * @param {*} context 上下文默认传递的参数
+     * @param {*} newName 自己传递的参数
+     */
+    // 定义一个异步的方法 context是 store
+    changeNameAsync (context, newName) {
+      // 这里用 setTimeout 模拟异步
+      setTimeout(() => {
+        // 在这里调用 mutations 中的处理方法
+        context.commit('changeName', newName)
+      }, 2000)
+    }
+  },
+  modules: {}
+})
+export default store
+
+//挂载在vue实例下即可使用
+new Vue({
+  el: '#app',
+  router,
+  store,
+  components: { App },
+  template: '<App/>'
+})
+```
+
+##### 	存储/读取变量
+
+```javascript
+state: {
+   name: '张三',
+   age: 21,
+}
+
+//组件中使用this.$store.state.name读取
+
+<h1>vuex直接读取值：{{$store.state.count}}</h1>
+
+//如果过多的话使用mapState,直接挂载在实例的计算属性中
+import { mapState } from 'vuex'
+ computed: {
+    ...mapState(['apple', 'banana'])
+  },
+```
+
+##### 	修改变量的同步方法
+
+```javascript
+ // 修改数据的同步方法
+  mutations: {
+    increment (state) {
+      state.count++
+    }
+  },
+      
+ //使用commit调用
+this.$store.commit('increment')
+
+//或者使用mapMutations
+methods: {
+	// 将 mutations 中的 changeName 方法映射到 methods 中，就能直接使用了 changeName 了
+    ...mapMutations(['increment'])
+  },
+```
+
+##### 	修改变量的异步方法
+
+​		`Action` 同样也是用来处理任务，不过它处理的是异步任务，异步任务必须要使用 `Action`，通过 `Action` 触发 `Mutation` 间接改变状态，不能直接使用 `Mutation` 直接对异步任务进行修改
+
+​		使用`this.$store.dispatch()`调用，或者`mapActions`
+
+##### 	Getter
+
+​		`Getter` 类似于计算属性，但是我们的数据来源是 `Vuex` 中的 `state` ,所以就使用 `Vuex` 中的 `Getter` 来完成，应用场景就是需要对 `state` 做一些包装简单性处理 展示到视图当中
+
+```javascript
+export default new Vuex.Store({
+  state: {
+    name: '张三',
+    age: 21,
+  },
+  getters: {
+    // 在这里对 状态 进行包装
+    /**
+     *
+     * @param {*} state 状态 如果要使用 state 里面的数据，第一个参数默认就是 state ，名字随便取
+     * @returns
+     */
+    decorationName(state) {
+      return `大家好我的名字叫${state.name}今年${state.age}岁`
+    },
+  },
+})
+
+
+```
+
+​	使用`this.$store.getters[名称]`或者`mapGetters`读取
+
+##### 	Module
+
+​		为了避免在一个复杂的项目 `state` 中的数据变得臃肿，`Vuex` 允许将 `Store` 分成不同的模块，每个模块都有属于自己的 `state`，`getter`，`action`，`mutation`
+
+```javascript
+/* animal.js */
+
+const state = {
+  animalName: '狮子',
+}
+const mutations = {
+  setName(state, newName) {
+    state.animalName = newName
+  },
+}
+
+//导出
+export default {
+  state,
+  mutations,
+}
+
+/* src/store/index.js */
+
+// 导入 Vue
+import Vue from 'vue'
+// 导入 Vuex 插件
+import Vuex from 'vuex'
+// 引入模块
+import animal from './animal'
+
+// 把 Vuex 注册到Vue 上
+Vue.use(Vuex)
+
+export default new Vuex.Store({
+  modules: {
+    animal,
+  },
+})
+
+
+//使用this.$store.state.animal.animalName调用
+
+```
+
+
+
+#### 	六、生命周期
+
+​		对于 vue 来讲，生命周期就是一个 vue 实例从创建到销毁的过程
+
+​		vue2:（before） created、（before） mounted---dom挂载、before （updated）、（before） destoryed
+
+- **多组件（父子组件）中生命周期的调用顺序说一下**（栈调用）
+
+组件的调用顺序都是先父后子，渲染完成的顺序是先子后父。组件的销毁操作是先父后子，销毁完成的顺序是先子后父。
+
+#### 	七、组件化和插槽
+
+#### 	八、vue2.0与vue3.0区别
+
+​	九、nexttick与keep-alive
+
+**nextTick**
+
+作用：vue 更新 DOM 是异步更新的，数据变化，DOM 的更新不会马上完成，nextTick 的回调是在下次 DOM 更新循环结束之后执行的延迟回调。
+
+实现原理：nextTick 主要使用了宏任务和微任务。根据执行环境分别尝试采用
+
+- Promise：可以将函数延迟到当前函数调用栈最末端
+- MutationObserver ：是 H5 新加的一个功能，其功能是监听 DOM 节点的变动，在所有 DOM 变动完成后，执行回调函数
+- setImmediate：用于中断长时间运行的操作，并在浏览器完成其他操作（如事件和显示更新）后立即运行回调函数
+- 如果以上都不行则采用 setTimeout 把函数延迟到 DOM 更新之后再使用，原因是宏任务消耗大于微任务，优先使用微任务，最后使用消耗最大的宏任务。
+
+​	
